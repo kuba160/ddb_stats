@@ -95,6 +95,30 @@ stats_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
     case DB_EV_SONGCHANGED:
         stats_save();
         break;
+    case DB_EV_CONFIGCHANGED:
+		if (deadbeef->conf_get_int ("stats.reset", 0) == 1) {
+			deadbeef->conf_set_int ("stats.reset", 0);
+			int i;
+			for (i = 0; i < list_count; i++) {
+				switch (list[i]->type) {
+					case TYPE_INT:
+						P_INT(list[i]->value) = 0;
+						break;
+					case TYPE_INT64:
+						P_INT64(list[i]->value) = 0;
+						break;
+					case TYPE_STRING:
+						// im tired and i don't know why it doesnt work...
+						// STRING(list[i]->value) = "";
+						break;
+					default:
+						deadbeef->log ("stats: unsupported type (todo)\n");
+				}
+			}
+			stats_save ();
+		}
+
+        break;
     case DB_EV_OUTPUTCHANGED:
 		output = deadbeef->get_output ();
         break;
@@ -243,7 +267,8 @@ stats_get_actions (DB_playItem_t *it) {
 }
 
 static const char settings_dlg[] =
-    "property \"Web browser\" entry stats.browser xdg-open;\n";
+    "property \"Web browser\" entry stats.browser xdg-open;\n"
+    "property \"Reset statistics\" checkbox stats.reset 0;\n";
 
 DB_misc_t plugin = {
     .plugin.api_vmajor = 1,
