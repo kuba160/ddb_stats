@@ -86,7 +86,7 @@ int stats_times_run_dbg (void * value) {
 
 int stats_times_run_dbg_parse (void * value, char * out, int out_size) {
 	int value_int = *((int *) value);
-	int * times_started =  (int *) get_entry_value ("general", "times_run");
+	int * times_started =  (int *) get_entry_value ("General", "times_run");
 	if (times_started) {
 		float percentage = (float) value_int / (float) *times_started * 100;
 		return snprintf (out, out_size, "%d (%.0f%%)", value_int, percentage);
@@ -95,28 +95,17 @@ int stats_times_run_dbg_parse (void * value, char * out, int out_size) {
 }
 #endif
 
-int stats_times_skipped (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2, void * value) {
-	switch (id) {
-		case DB_EV_NEXT:
-		case DB_EV_PLAY_NUM:
-        if (output)
-        	if (output->state() == OUTPUT_STATE_PLAYING)
-        		*((int *) value) += 1;
-    	break;
-	}
-	return 0;
-}
-
 struct stat_entry totaltime = {
-	.plugin = "general",
+	.plugin = "General",
 	.name = "time_played",
 	.description = 0, // Not used
 	.type = TYPE_INT,
-	.loop = stats_time_played
+	.loop = stats_time_played,
+	.settings = FLAG_HIDDEN
 };
 
 struct stat_entry timesrun = {
-	.plugin = "general",
+	.plugin = "General",
 	.name = "times_run",
 	.description = "Times started",
 	.type = TYPE_INT,
@@ -125,7 +114,7 @@ struct stat_entry timesrun = {
 
 #ifdef TRACE_GDB
 struct stat_entry timesrun_dbg = {
-	.plugin = "general",
+	.plugin = "General",
 	.name = "times_run_dbg",
 	.description = "Times started with GDB",
 	.value_parse = stats_times_run_dbg_parse,
@@ -134,20 +123,11 @@ struct stat_entry timesrun_dbg = {
 };
 #endif
 
-struct stat_entry timesskipped = {
-	.plugin = "general",
-	.name = "times_skipped",
-	.description = "Songs skipped",
-	.type = TYPE_INT,
-	.message = stats_times_skipped
-};
 
-int stats_default () {
+void stats_default () {
 	stats_entry_add (totaltime);
 	stats_entry_add (timesrun);
 	#ifdef TRACE_GDB
 	stats_entry_add (timesrun_dbg);
 	#endif
-	stats_entry_add (timesskipped);
-	return 0;
 }

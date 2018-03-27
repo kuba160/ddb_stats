@@ -57,6 +57,10 @@ void stats_save ();
 #define TYPE_INT64 1
 #define TYPE_FLOAT 2
 #define TYPE_STRING 3
-#define TYPE_DUMMY 4
+// no value allocation type
+#define TYPE_DUMMY 255
 
-#define SETTING_ALLOCATED 1
+// set by stats plugin; tells if value was allocated by stats plugin
+#define FLAG_ALLOCATED	1 << 0
+// hides entry from statistics
+#define FLAG_HIDDEN 	1 << 1

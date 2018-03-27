@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "stats.h"
 
@@ -43,6 +44,7 @@ DB_output_t *output;
 // type casting
 #define P_INT(x) *((int *)(x))
 #define P_INT64(x) *((int64_t *)(x))
+#define P_FLOAT(x) *((float *)(x))
 #define STRING(x) ((char *)(x))
 
 //#define trace(...) { deadbeef->log ( __VA_ARGS__); }
@@ -55,13 +57,18 @@ static int thread_terminate = 0;
 struct stat_entry * list[ENTRY_MAX];
 int list_count = 0;
 
-// defined in default_values.c
-extern int stats_default ();
+// defined in values_*.c
+extern void stats_default ();
+extern void stats_playlist ();
 // defined in gen_html.c
 extern int stats_gen_html (char * filename, struct stat_entry * (*table)[ENTRY_MAX], int list_count ); 
 
 static int stats_confname_build (struct stat_entry ext, char * buf, int buf_size) {
-	return snprintf (buf, buf_size, "stats_%s_%s", ext.plugin, ext.name);
+	int ret = snprintf (buf, buf_size, "stats_%s_%s", ext.plugin, ext.name);
+	int i = -1;
+	while (buf[++i] != 0)
+		buf[i] = tolower (buf[i]);
+	return ret;
 }
 
 void *
@@ -108,6 +115,11 @@ stats_save () {
 			case TYPE_STRING:
 				deadbeef->conf_set_str (buf, STRING(list[i]->value));
 				break;
+			case TYPE_FLOAT:
+				deadbeef->conf_set_float (buf, P_FLOAT(list[i]->value));
+				break;
+			case TYPE_DUMMY:
+				break;
 			default:
 				deadbeef->log ("stats: unsupported type (todo)\n");
 		}
@@ -133,12 +145,18 @@ stats_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
 					case TYPE_INT64:
 						P_INT64(list[i]->value) = 0;
 						break;
+					case TYPE_FLOAT:
+						P_FLOAT(list[i]->value) = 0;
+						break;
 					case TYPE_STRING:
+						deadbeef->log ("stats: TODO reset strings\n");
 						// im tired and i don't know why it doesnt work...
 						// STRING(list[i]->value) = "";
 						break;
+					case TYPE_DUMMY:
+						break;
 					default:
-						deadbeef->log ("stats: unsupported type (todo)\n");
+						deadbeef->log ("stats: unknown type\n");
 				}
 			}
 			stats_save ();
@@ -177,6 +195,7 @@ stats_thread (void *context) {
 static int
 stats_start () {
 	stats_default ();
+	stats_playlist ();
 	stats_tid = deadbeef->thread_start (stats_thread, NULL);
 	return 0;
 }
@@ -200,7 +219,7 @@ stats_stop () {
 		}
 	}
 	for (i = 0; i < list_count; i++) {
-		if (list[i]->value && list[i]->type != TYPE_DUMMY && (list[i]->settings & SETTING_ALLOCATED))
+		if ((list[i]->settings & FLAG_ALLOCATED))
 			free (list[i]->value);
 		free (list[i]);
 	}
@@ -248,29 +267,53 @@ void * stats_entry_add (struct stat_entry val) {
 	}
 
 	memcpy (mem, &val, sizeof(struct stat_entry));
-	mem->settings = 0;
 	char buf[255];
 	stats_confname_build (*mem, buf, 255);
 	if (mem->type == TYPE_INT) {
 		if (!mem->value) {
-			mem->settings += SETTING_ALLOCATED;
 			mem->value = malloc(sizeof(int));
+			if (mem->value)
+				mem->settings += FLAG_ALLOCATED;
 		}
 		if (mem->value)
 			P_INT(mem->value) = deadbeef->conf_get_int (buf, 0);
 		trace ("stats: new entry %s with value %d\n", buf, P_INT(mem->value));
 	}
+	else if (mem->type == TYPE_INT64) {
+		if (!mem->value) {
+			mem->value = malloc(sizeof(int64_t));
+			if (mem->value)
+				mem->settings += FLAG_ALLOCATED;
+		}
+		if (mem->value)
+			P_INT64(mem->value) = deadbeef->conf_get_int64 (buf, 0);
+		trace ("stats: new entry %s with value %ld\n", buf, P_INT64(mem->value));
+	}
 	else if (mem->type == TYPE_STRING) {
 		if (!mem->value) {
-			mem->settings += SETTING_ALLOCATED;
 			mem->value = calloc(1, mem->string_len);
+			if (mem->value)
+				mem->settings += FLAG_ALLOCATED;
 		}
 		if (mem->value) 
 			deadbeef->conf_get_str (buf, "", mem->value, mem->string_len);
 		trace ("stats: new entry %s with value %s\n",buf, ((char *) mem->value));
 	}
+	else if (mem->type == TYPE_FLOAT) {
+		if (!mem->value) {
+			mem->value = malloc(sizeof(float));
+			if (mem->value)
+				mem->settings += FLAG_ALLOCATED;
+		}
+		if (mem->value)
+			P_FLOAT(mem->value) = deadbeef->conf_get_float (buf, 0.0);
+		trace ("stats: new entry %s with value %f\n",buf, P_FLOAT(mem->value));
+	}
+	else if (mem->type == TYPE_DUMMY) {
+		mem->value = 0;
+	}
 	else
-		deadbeef->log ("stats: type %d not supported yet?\n");
+		deadbeef->log ("stats: type No. %d unknown\n",mem->type);
 
 	list[list_count] = mem;
 	return list[list_count++]->value;
@@ -302,7 +345,7 @@ DB_misc_t plugin = {
     .plugin.api_vminor = 10,
     .plugin.type = DB_PLUGIN_MISC,
     .plugin.version_major = 0,
-    .plugin.version_minor = 7,
+    .plugin.version_minor = 8,
     .plugin.id = "stats",
     .plugin.name ="Statistics for DeaDBeeF",
     .plugin.descr = "Plugin which collects data for stats",
