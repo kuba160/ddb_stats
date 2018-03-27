@@ -83,6 +83,16 @@ int stats_times_run_dbg (void * value) {
 	}
    	return 0;
 }
+
+int stats_times_run_dbg_parse (void * value, char * out, int out_size) {
+	int value_int = *((int *) value);
+	int * times_started =  (int *) get_entry_value ("general", "times_run");
+	if (times_started) {
+		float percentage = (float) value_int / (float) *times_started * 100;
+		return snprintf (out, out_size, "%d (%.0f%%)", value_int, percentage);
+	}
+	return snprintf (out, out_size, "%d", value_int);
+}
 #endif
 
 int stats_times_skipped (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2, void * value) {
@@ -118,6 +128,7 @@ struct stat_entry timesrun_dbg = {
 	.plugin = "general",
 	.name = "times_run_dbg",
 	.description = "Times started with GDB",
+	.value_parse = stats_times_run_dbg_parse,
 	.type = TYPE_INT,
 	.once = stats_times_run_dbg
 };

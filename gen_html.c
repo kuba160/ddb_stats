@@ -38,7 +38,48 @@ extern DB_functions_t *deadbeef;
 extern unsigned char index1_txt[];
 extern unsigned int index1_txt_len;
 
-int stats_gen_html (char * filename, struct stat_entry * (*table)[ENTRY_MAX], int list_count ) {
+void
+html_table_gen (FILE * fp, char * plugin, struct stat_entry * list[ENTRY_MAX], int list_count) {
+	if (strcmp (plugin, "general") != 0){
+		fprintf (fp, "<h1>%s</h1>\n", plugin);
+	}
+	// table
+	fprintf (fp, "<table align=\"center\">\n<tr>\n<th>Description</th>\n<th>Value</th>\n</tr>\n" );
+	int i;
+	for (i = 0; i < list_count; i++) {
+		if (strcmp (list[i]->plugin, plugin) == 0) {
+			if (!(list[i]->description))
+				list[i]->description = list[i]->name;
+			// ignore time_played
+			if (strcmp (list[i]->name, "time_played") == 0)
+				continue;
+			// use custom parser if available
+			if (list[i]->value_parse) {
+				char buffer[255];
+				int ret = list[i]->value_parse (list[i]->value, buffer, 255);
+				// TODO check if whole buffer is full
+				fprintf (fp, "<tr><td>%s</td><td>%s</td></tr>\n",list[i]->description, buffer);
+			}
+			else {
+				switch (list[i]->type) {
+					case TYPE_INT:
+						fprintf (fp, "<tr><td>%s</td><td>%d</td></tr>\n",list[i]->description, *((int *) list[i]->value));
+					    break;
+					case TYPE_STRING:
+
+						fprintf (fp, "<tr><td>%s</td><td>%s</td></tr>\n",list[i]->description, ((char *) list[i]->value));
+					    break;
+					default:
+						deadbeef->log ("stats: unsupported type (todo)\n");
+						break;
+				}
+			}
+		}
+	}
+	fprintf (fp, "</table>\n");
+}
+
+int stats_gen_html (char * filename, struct stat_entry * (*table)[ENTRY_MAX], int list_count) {
 	struct stat_entry * list[ENTRY_MAX];
 	memcpy (&list, table, sizeof (struct stat_entry *[ENTRY_MAX]));
 
@@ -67,41 +108,7 @@ int stats_gen_html (char * filename, struct stat_entry * (*table)[ENTRY_MAX], in
 	}
 	fprintf (fp, "%s\n",HTML1_ENDING);
 
-	// table
-	int times_run = 0;
-	fprintf (fp, "<table align=\"center\">\n<tr>\n<th>Description</th>\n<th>Value</th>\n</tr>\n" );
-	for (i = 0; i < list_count; i++) {
-		if (strcmp (list[i]->plugin, "general") == 0) {
-			if (!(list[i]->description))
-				list[i]->description = list[i]->name;
-			// written before
-			if (strcmp (list[i]->name, "time_played") == 0)
-				continue;
-			// save value to calculate percentage for times_run_dbg
-			if (strcmp (list[i]->name, "times_run") == 0)
-				times_run =  *((int *) list[i]->value);
-			// times_run_dbg has percentage written next to value
-			if (strcmp (list[i]->name, "times_run_dbg") == 0) {
-				if (times_run) {
-					int percent =  (*((int *) list[i]->value)*100)/times_run;
-					fprintf (fp, "<tr><td>%s</td><td>%d (%d%%)</td></tr>\n",list[i]->description, *((int *) list[i]->value), percent);
-					continue;
-				}
-			}
-			switch (list[i]->type) {
-				case TYPE_INT:
-					fprintf (fp, "<tr><td>%s</td><td>%d</td></tr>\n",list[i]->description, *((int *) list[i]->value));
-				    break;
-				case TYPE_STRING:
-					fprintf (fp, "<tr><td>%s</td><td>%s</td></tr>\n",list[i]->description, ((char *) list[i]->value));
-				    break;
-				default:
-					deadbeef->log ("stats: unsupported type (todo)\n");
-					break;
-			}
-		}
-	}
-	fprintf (fp, "</table>\n");
+	html_table_gen (fp, "general", list, list_count);
 	
 	fprintf (fp, "%s\n",HTML_END);
 	fclose (fp);

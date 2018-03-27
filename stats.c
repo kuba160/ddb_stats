@@ -60,8 +60,34 @@ extern int stats_default ();
 // defined in gen_html.c
 extern int stats_gen_html (char * filename, struct stat_entry * (*table)[ENTRY_MAX], int list_count ); 
 
-static int stats_value_build (struct stat_entry ext, char * buf, int buf_size) {
+static int stats_confname_build (struct stat_entry ext, char * buf, int buf_size) {
 	return snprintf (buf, buf_size, "stats_%s_%s", ext.plugin, ext.name);
+}
+
+void *
+get_entry_value (const char * plugin, const char * name) {
+	int i;
+	for (i = 0; i < list_count; i++) {
+		if (strcmp (plugin, list[i]->plugin) == 0) {
+			if (strcmp (name, list[i]->name) == 0) {
+				return list[i]->value;
+			}
+		}
+	}
+	return 0;
+}
+
+int
+get_entry_value_type (const char * plugin, const char * name) {
+	int i;
+	for (i = 0; i < list_count; i++) {
+		if (strcmp (plugin, list[i]->plugin) == 0) {
+			if (strcmp (name, list[i]->name) == 0) {
+				return list[i]->type;
+			}
+		}
+	}
+	return -1;
 }
 
 void
@@ -69,7 +95,7 @@ stats_save () {
 	int i;
 	char buf[255];
 	for (i = 0; i < list_count; i++) {
-		stats_value_build (*(list[i]), buf, 255);
+		stats_confname_build (*(list[i]), buf, 255);
 		//deadbeef->log ("saving %s\n",buf);
 		switch (list[i]->type) {
 			case TYPE_INT:
@@ -163,7 +189,7 @@ stats_stop () {
 	int i;
 	char buf[255];
 	for (i = 0; i < list_count; i++) {
-		stats_value_build (*(list[i]), buf, 255);
+		stats_confname_build (*(list[i]), buf, 255);
 		switch (list[i]->type) {
 			case TYPE_INT:
 				trace ("STATS: %s %d\n",buf,P_INT(list[i]->value) );
@@ -197,12 +223,11 @@ stats_action_show_stats (DB_plugin_action_t *act, int ctx) {
 	char browser_buf[1024];
 	#ifdef __MINGW32__
 	strcpy (browser_buf, "cmd /c start ");
-	strcat (browser_buf, filename);
 	#else
 	deadbeef->conf_get_str ("stats.browser","xdg-open",browser_buf, sizeof(browser_buf));
 	strcat (browser_buf, " ");
-	strcat (browser_buf,filename);
 	#endif
+	strcat (browser_buf,filename);
 	trace ("stats: > %s\n",browser_buf);
 	system (browser_buf);
 	return 0;
@@ -225,7 +250,7 @@ void * stats_entry_add (struct stat_entry val) {
 	memcpy (mem, &val, sizeof(struct stat_entry));
 	mem->settings = 0;
 	char buf[255];
-	stats_value_build (*mem, buf, 255);
+	stats_confname_build (*mem, buf, 255);
 	if (mem->type == TYPE_INT) {
 		if (!mem->value) {
 			mem->settings += SETTING_ALLOCATED;
@@ -267,7 +292,9 @@ stats_get_actions (DB_playItem_t *it) {
 }
 
 static const char settings_dlg[] =
+#ifndef __MINGW32__
     "property \"Web browser\" entry stats.browser xdg-open;\n"
+#endif
     "property \"Reset statistics\" checkbox stats.reset 0;\n";
 
 DB_misc_t plugin = {

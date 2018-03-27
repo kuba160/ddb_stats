@@ -30,6 +30,8 @@ struct stat_entry {
 	const char * description;
 	// pointer to value (set by stats_entry_add)
 	void * value;
+	// value parser on stats generation
+	int (*value_parse)(void * value, char * out, int out_size);
 	// value type
 	int type;
 	// length of string (if type is string)
@@ -45,6 +47,9 @@ struct stat_entry {
 };
 
 void * stats_entry_add (struct stat_entry val);
+
+void * get_entry_value (const char * plugin, const char * name);
+int get_entry_value_type (const char * plugin, const char * name);
 
 void stats_save ();
 
