@@ -48,7 +48,8 @@ DB_output_t *output;
 #define STRING(x) ((char *)(x))
 
 //#define trace(...) { deadbeef->log ( __VA_ARGS__); }
-#define trace(...) { fprintf(stdout, __VA_ARGS__); }
+#define trace(...) { deadbeef->log_detailed (&plugin.plugin, 0, __VA_ARGS__); }
+//#define trace(...) { fprintf(stdout, __VA_ARGS__); }
 
 static intptr_t stats_tid;
 static int thread_terminate = 0;
