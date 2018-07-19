@@ -38,6 +38,7 @@
 #include <sys/wait.h>
 #endif
 
+DB_misc_t plugin;
 DB_functions_t *deadbeef;
 DB_output_t *output;
 
@@ -370,8 +371,8 @@ DB_misc_t plugin = {
         "2. Altered source versions must be plainly marked as such, and must not be\n"
         " misrepresented as being the original software.\n"
         "\n"
-        "3. This notice may not be removed or altered from any source distribution.\n"
-    ,
+        "3. This notice may not be removed or altered from any source distribution.\n",
+    .plugin.website = "https://github.com/kuba160/ddb_stats",
     .plugin.message = stats_message,
     .plugin.start = stats_start,
     .plugin.stop = stats_stop,
